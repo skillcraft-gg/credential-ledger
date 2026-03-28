@@ -56,7 +56,7 @@ async function scanCredentialDefinitions() {
         owner,
         slug,
         path: path.posix.join(CREDENTIALS_ROOT, owner, slug, ''),
-        url: `${PAGES_BASE_URL}/${path.posix.join('credentials', owner, slug, '')}`,
+        url: `${PAGES_BASE_URL}/${path.posix.join('credential-ledger', owner, slug, '')}`,
         updatedAt: await fileUpdatedAt(manifestPath),
       })
     }

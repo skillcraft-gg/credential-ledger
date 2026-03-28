@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 const execFileAsync = promisify(execFile)
 
 const EVENT_PATH = process.env.GITHUB_EVENT_PATH
-const DEFAULT_REPO = process.env.GITHUB_REPOSITORY || 'skillcraft-gg/credentials'
+const DEFAULT_REPO = process.env.GITHUB_REPOSITORY || 'skillcraft-gg/credential-ledger'
 
 const LABEL_CLAIM = 'skillcraft-claim'
 const LABEL_PROCESSING = 'skillcraft-processing'

@@ -7,7 +7,7 @@ stores issued credential receipts for public discovery.
 
 Published site surface:
 
-- `skillcraft.gg/credentials` (rendered by `skillcraft-gg.github.io`)
+- `skillcraft.gg/credential-ledger` (rendered by `skillcraft-gg.github.io`)
 
 Source of truth:
 
@@ -97,7 +97,7 @@ the credential definition folder.
 ## Claim Submission
 
 `skillcraft claim <credential-id>` creates a GitHub issue in
-`skillcraft-gg/credentials` labeled `skillcraft-claim`.
+`skillcraft-gg/credential-ledger` labeled `skillcraft-claim`.
 
 Claim payload uses YAML:
 
