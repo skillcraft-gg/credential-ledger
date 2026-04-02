@@ -1,4 +1,5 @@
 name: Process credential claims
+run-name: Process claim issue #${{ github.event.issue.number }}
 
 on:
   issues:
