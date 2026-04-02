@@ -123,12 +123,13 @@ GitHub Actions verifies:
 - proof object availability for claimed commits
 - requirement checks using nested `and`/`or` expressions and optional provenance rules (`agent`, `model`, `min_repositories`)
 
-On success, issue labels are set to `skillcraft-verified` and `skillcraft-issued`
-and an issued credential is written.
+On success, issue labels are set to `skillcraft-verified` and `skillcraft-issued`,
+an issued credential is written, and the issue is automatically closed.
 The claim workflow also refreshes `credentials/index.json` and
 `issued/users/index.json` and commits those index updates when they change.
 
-On failure, issue label is set to `skillcraft-rejected` with an issue comment.
+On failure, issue label is set to `skillcraft-rejected` with an issue comment,
+the issue is closed, and the comment includes steps to re-submit a fresh claim.
 
 ## Credential Issuance
 

@@ -74,6 +74,7 @@ async function runClaimProcessing() {
         targetRepo,
         buildRejectionComment(payload.credential.id, requirements, result),
       )
+      await closeIssue(issue.number, targetRepo, 'not_planned')
       return
     }
 
@@ -91,12 +92,14 @@ async function runClaimProcessing() {
       targetRepo,
       buildSuccessComment(payload, definition, checks.provenCommits, updated, issuedPath),
     )
+    await closeIssue(issue.number, targetRepo, 'completed')
   } catch (error) {
     await setIssueState(issue.number, targetRepo, {
       add: [LABEL_REJECTED],
       remove: [LABEL_VERIFIED, LABEL_ISSUED],
     })
     await postComment(issue.number, targetRepo, `Claim verification failed: ${String(error?.message || error)}`)
+    await closeIssue(issue.number, targetRepo, 'not_planned')
     throw error
   } finally {
     await setIssueState(issue.number, targetRepo, {
@@ -894,6 +897,9 @@ function buildRejectionComment(id, requirements, result) {
 
   lines.push(`Required min commits: ${requirements.minCommits}`)
   lines.push(`Required min repositories: ${requirements.minRepositories || 0}`)
+  lines.push('')
+  lines.push('To retry, fix the claim payload/proof and submit a fresh claim issue.')
+  lines.push('Use `skillcraft claim <credential-id>` to submit a new claim.')
   return lines.join('\n')
 }
 
@@ -923,6 +929,15 @@ async function setIssueState(issueNumber, repo, { add = [], remove = [] } = {}) 
 async function postComment(issueNumber, repo, body) {
   const cleaned = String(body || '').slice(0, 65000)
   await runGh(['issue', 'comment', String(issueNumber), '--repo', repo, '--body', cleaned])
+}
+
+async function closeIssue(issueNumber, repo, reason = 'completed') {
+  const args = ['issue', 'close', String(issueNumber), '--repo', repo]
+  if (reason) {
+    args.push('--reason', reason)
+  }
+
+  await runGh(args)
 }
 
 async function runNodeScript(relativePath) {
