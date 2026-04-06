@@ -28,7 +28,7 @@ async function runClaimProcessing() {
     return
   }
 
-  if (!hasLabel(issue.labels, LABEL_CLAIM)) {
+  if (!isClaimIssue(issue)) {
     process.stdout.write(`Issue #${issue.number} is not a claim issue\n`)
     return
   }
@@ -41,7 +41,7 @@ async function runClaimProcessing() {
     }
   } catch (error) {
     await setIssueState(issue.number, targetRepo, {
-      add: [LABEL_REJECTED],
+      add: [LABEL_CLAIM, LABEL_REJECTED],
       remove: [LABEL_PROCESSING],
     })
     await postComment(
@@ -53,7 +53,7 @@ async function runClaimProcessing() {
   }
 
   await setIssueState(issue.number, targetRepo, {
-    add: [LABEL_PROCESSING],
+    add: [LABEL_CLAIM, LABEL_PROCESSING],
     remove: [LABEL_REJECTED, LABEL_ISSUED, LABEL_VERIFIED],
   })
 
@@ -62,6 +62,21 @@ async function runClaimProcessing() {
 
     const claimant = normalizeClaimant(payload.claimant.github)
     payload.claimant.github = claimant
+
+    const duplicate = findDuplicateOpenClaim(await listOpenIssues(targetRepo), issue.number, payload)
+    if (duplicate) {
+      await setIssueState(issue.number, targetRepo, {
+        add: [LABEL_CLAIM, LABEL_REJECTED],
+        remove: [LABEL_VERIFIED, LABEL_ISSUED],
+      })
+      await postComment(
+        issue.number,
+        targetRepo,
+        buildDuplicateClaimComment(payload.credential.id, duplicate),
+      )
+      await closeIssue(issue.number, targetRepo, 'not_planned')
+      return
+    }
 
     if (await isCredentialAlreadyIssued(claimant, definition)) {
       const issuedPath = getIssuedCredentialPath(claimant, definition)
@@ -225,6 +240,57 @@ export function parseClaimPayload(issue) {
     claim_id: claimId,
     sources,
   }
+}
+
+export function isClaimIssue(issue) {
+  if (hasLabel(issue?.labels, LABEL_CLAIM)) {
+    return true
+  }
+
+  if (isClaimTitle(issue?.title)) {
+    return true
+  }
+
+  try {
+    parseClaimPayload(issue)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function findDuplicateOpenClaim(issues, currentIssueNumber, payload) {
+  const normalizedClaimant = normalizeClaimant(payload?.claimant?.github)
+  const normalizedCredential = normalizeText(payload?.credential?.id)
+  if (!normalizedClaimant || !normalizedCredential) {
+    return undefined
+  }
+
+  const matches = (issues || [])
+    .filter((issue) => issue?.number && issue.number !== currentIssueNumber && normalizeText(issue?.state) === 'open')
+    .map((issue) => {
+      try {
+        return {
+          issue,
+          payload: parseClaimPayload(issue),
+        }
+      } catch {
+        return undefined
+      }
+    })
+    .filter((entry) => {
+      if (!entry || entry.issue.number >= currentIssueNumber) {
+        return false
+      }
+
+      return (
+        normalizeClaimant(entry.payload.claimant.github) === normalizedClaimant &&
+        normalizeText(entry.payload.credential.id) === normalizedCredential
+      )
+    })
+    .sort((left, right) => left.issue.number - right.issue.number)
+
+  return matches[0]?.issue
 }
 
 async function loadCredentialDefinition(id) {
@@ -1040,6 +1106,21 @@ function buildAlreadyIssuedComment(id, definition, issuedPath) {
   return lines.join('\n')
 }
 
+function buildDuplicateClaimComment(id, duplicateIssue) {
+  const lines = []
+  lines.push(`⚠️ Claim for ${id} is already submitted.`)
+  lines.push('No action was taken.')
+  lines.push(`Existing open issue: #${duplicateIssue.number}`)
+  if (duplicateIssue.url) {
+    lines.push(`Existing issue URL: ${duplicateIssue.url}`)
+  }
+  return lines.join('\n')
+}
+
+function isClaimTitle(title) {
+  return normalizeText(title).startsWith('claim:')
+}
+
 function hasLabel(labels, name) {
   return (labels || []).some((label) => {
     const labelName = typeof label === 'string' ? label : label?.name
@@ -1061,6 +1142,22 @@ async function setIssueState(issueNumber, repo, { add = [], remove = [] } = {}) 
   }
 
   await runGh(args)
+}
+
+async function listOpenIssues(repo) {
+  const raw = await runGh([
+    'issue',
+    'list',
+    '--repo',
+    repo,
+    '--state',
+    'open',
+    '--json',
+    'number,title,state,body,labels,url',
+    '--limit',
+    '100',
+  ])
+  return JSON.parse(raw)
 }
 
 async function postComment(issueNumber, repo, body) {
@@ -1100,11 +1197,12 @@ async function runGh(args) {
     throw new Error('gh CLI is required for claim processing')
   }
 
-  await execFileAsync('gh', args, {
+  const result = await execFileAsync('gh', args, {
     encoding: 'utf8',
     env: { ...process.env, GH_PAGER: '' },
     maxBuffer: 10 * 1024 * 1024,
   })
+  return result.stdout.trim()
 }
 
 async function hasGh() {

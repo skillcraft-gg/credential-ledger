@@ -15,7 +15,6 @@ permissions:
 jobs:
   process-claims:
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'skillcraft-claim')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

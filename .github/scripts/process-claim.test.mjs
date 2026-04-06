@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { evaluateRequirements, normalizeRequirements, parseClaimPayload } from './process-claim.mjs'
+import { evaluateRequirements, findDuplicateOpenClaim, isClaimIssue, normalizeRequirements, parseClaimPayload } from './process-claim.mjs'
 
 function proof(overrides = {}) {
   return {
@@ -191,5 +191,59 @@ describe('process-claim payload parsing', () => {
       }),
       /claim payload missing credential.id/,
     )
+  })
+
+  test('detects unlabeled claim issues by title and payload', () => {
+    assert.equal(isClaimIssue({
+      title: 'claim: skillcraft-gg/hello-world',
+      body: 'not yaml',
+      labels: [],
+    }), true)
+
+    assert.equal(isClaimIssue({
+      title: 'help needed',
+      body: 'claimant:\n  github: blairhudson\ncredential:\n  id: skillcraft-gg/hello-world',
+      labels: [],
+    }), true)
+
+    assert.equal(isClaimIssue({
+      title: 'general question',
+      body: 'how do I use this?',
+      labels: [],
+    }), false)
+  })
+
+  test('finds older open duplicate claims without relying on labels', () => {
+    const payload = parseClaimPayload({
+      body: 'claimant:\n  github: blairhudson\ncredential:\n  id: skillcraft-gg/hello-world',
+    })
+
+    const duplicate = findDuplicateOpenClaim([
+      {
+        number: 40,
+        state: 'open',
+        title: 'claim: skillcraft-gg/hello-world',
+        body: 'claimant:\n  github: blairhudson\ncredential:\n  id: skillcraft-gg/hello-world',
+        labels: [],
+        url: 'https://github.com/skillcraft-gg/credential-ledger/issues/40',
+      },
+      {
+        number: 41,
+        state: 'closed',
+        title: 'claim: skillcraft-gg/hello-world',
+        body: 'claimant:\n  github: blairhudson\ncredential:\n  id: skillcraft-gg/hello-world',
+        labels: [],
+      },
+      {
+        number: 44,
+        state: 'open',
+        title: 'claim: skillcraft-gg/hello-world',
+        body: 'claimant:\n  github: blairhudson\ncredential:\n  id: skillcraft-gg/hello-world',
+        labels: [],
+      },
+    ], 42, payload)
+
+    assert.equal(duplicate?.number, 40)
+    assert.equal(duplicate?.url, 'https://github.com/skillcraft-gg/credential-ledger/issues/40')
   })
 })
