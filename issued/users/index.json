@@ -52,5 +52,31 @@
         }
       }
     ]
+  },
+  {
+    "github": "petewoods",
+    "issuedCount": 1,
+    "credentials": [
+      {
+        "definition": "skillcraft-gg/hello-world",
+        "issuedAt": "2026-04-06T23:06:59.432Z",
+        "path": "issued/users/petewoods/skillcraft-gg/hello-world",
+        "claimId": "sha256:01f80e3c",
+        "sources": [
+          {
+            "repo": "petewoods/hello-world",
+            "commits": [
+              "44f87bd598f4c35735580595b25824ab3180ad48"
+            ]
+          }
+        ],
+        "sourceCommits": [
+          "44f87bd598f4c35735580595b25824ab3180ad48"
+        ],
+        "subject": {
+          "github": "petewoods"
+        }
+      }
+    ]
   }
 ]
