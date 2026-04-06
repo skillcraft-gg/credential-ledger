@@ -26,5 +26,31 @@
         }
       }
     ]
+  },
+  {
+    "github": "jen-gineer",
+    "issuedCount": 1,
+    "credentials": [
+      {
+        "definition": "skillcraft-gg/hello-world",
+        "issuedAt": "2026-04-06T06:57:39.517Z",
+        "path": "issued/users/jen-gineer/skillcraft-gg/hello-world",
+        "claimId": "sha256:8e24b587",
+        "sources": [
+          {
+            "repo": "jen-gineer/paddock-to-plate",
+            "commits": [
+              "75eeb0a128caccc15864b2537268de8edc82fb39"
+            ]
+          }
+        ],
+        "sourceCommits": [
+          "75eeb0a128caccc15864b2537268de8edc82fb39"
+        ],
+        "subject": {
+          "github": "jen-gineer"
+        }
+      }
+    ]
   }
 ]
