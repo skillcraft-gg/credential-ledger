@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'credentials/*/*/credential.yaml'
-      - 'issued/users/**/*/credential.yaml'
   workflow_dispatch:
 
 permissions:
@@ -35,6 +32,11 @@ jobs:
 
       - name: Build changelog
         uses: skillcraft-gg/docs/.github/actions/build-changelog@main
+
+      - name: Build credentials indexes
+        env:
+          SKILLCRAFT_PAGES_BASE_URL: https://skillcraft.gg
+        run: node .github/scripts/build-credentials-index.mjs
 
       - name: Prepare Pages artifact
         uses: skillcraft-gg/docs/.github/actions/prepare-repo-pages@main

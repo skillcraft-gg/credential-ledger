@@ -125,8 +125,10 @@ GitHub Actions verifies:
 
 On success, issue labels are set to `skillcraft-verified` and `skillcraft-issued`,
 an issued credential is written, and the issue is automatically closed.
-The claim workflow also refreshes `credentials/index.json` and
-`issued/users/index.json` and commits those index updates when they change.
+The Pages publish workflow refreshes `credentials/index.json` and
+`issued/users/index.json` at deploy time so the published site always reflects
+the latest credential definitions and issued records. These generated indexes
+are publish artifacts and are not committed to `main`.
 
 On failure, issue label is set to `skillcraft-rejected` with an issue comment,
 the issue is closed, and the comment includes steps to re-submit a fresh claim.
@@ -151,7 +153,8 @@ source_commits:
 
 ## Registry Indexes
 
-Discovery artifacts are generated in-repo:
+Discovery artifacts are generated during Pages publishing, included in the
+published repository bundle, and not stored in the tracked repo tree:
 
 - `credentials/index.json` (all credential definitions)
 - `issued/users/index.json` (issued credentials grouped by GitHub user)

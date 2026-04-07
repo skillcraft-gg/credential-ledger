@@ -115,8 +115,6 @@ async function runClaimProcessing() {
 
     const issuedPath = await writeIssuedCredential(payload, definition, checks)
 
-    const updated = await buildIndexes()
-
     await setIssueState(issue.number, targetRepo, {
       add: [LABEL_VERIFIED, LABEL_ISSUED],
       remove: [LABEL_REJECTED],
@@ -125,7 +123,7 @@ async function runClaimProcessing() {
     await postComment(
       issue.number,
       targetRepo,
-      buildSuccessComment(payload, definition, checks.provenCommits, updated, issuedPath),
+      buildSuccessComment(payload, definition, checks.provenCommits, issuedPath),
     )
     await closeIssue(issue.number, targetRepo, 'completed')
   } catch (error) {
@@ -155,53 +153,7 @@ function getIssuedCredentialPath(claimant, definition) {
 
 async function isCredentialAlreadyIssued(claimant, definition) {
   const normalizedClaimant = normalizeClaimant(claimant)
-
-  const canonicalPath = getIssuedCredentialPath(normalizedClaimant, definition)
-  if (await fileExists(canonicalPath)) {
-    return true
-  }
-
-  const rawPath = path.join('issued', 'users', normalizeText(claimant), normalizeText(definition?.owner), normalizeText(definition?.slug), 'credential.yaml')
-  if (rawPath !== canonicalPath && await fileExists(rawPath)) {
-    return true
-  }
-
-  return isCredentialInIssuedIndex(normalizedClaimant, definition?.id)
-}
-
-async function isCredentialInIssuedIndex(claimant, definitionId) {
-  const normalizedClaimant = normalizeClaimant(claimant)
-  const targetCredential = normalizeText(definitionId)
-  if (!normalizedClaimant || !targetCredential) {
-    return false
-  }
-
-  let raw
-  try {
-    raw = await fs.readFile(path.join('issued', 'users', 'index.json'), 'utf8')
-  } catch {
-    return false
-  }
-
-  let entries
-  try {
-    entries = JSON.parse(raw)
-  } catch {
-    return false
-  }
-
-  if (!Array.isArray(entries)) {
-    return false
-  }
-
-  return entries.some((entry) => {
-    const sameUser = normalizeClaimant(entry?.github) === normalizedClaimant
-    if (!sameUser || !Array.isArray(entry?.credentials)) {
-      return false
-    }
-
-    return entry.credentials.some((credential) => normalizeText(credential?.definition) === targetCredential)
-  })
+  return fileExists(getIssuedCredentialPath(normalizedClaimant, definition))
 }
 
 if (process.argv[1] && process.argv[1] === new URL(import.meta.url).pathname) {
@@ -1057,12 +1009,7 @@ function buildVerifiedSourcesFromProofs(result) {
     .filter((entry) => entry.repo && entry.commits.length > 0)
 }
 
-async function buildIndexes() {
-  const result = await runNodeScript('./.github/scripts/build-credentials-index.mjs')
-  return !!result
-}
-
-function buildSuccessComment(payload, definition, provenCommits, updatedIndexes, issuedPath) {
+function buildSuccessComment(payload, definition, provenCommits, issuedPath) {
   const lines = []
   lines.push('✅ Claim verified for `' + payload.credential.id + '`')
   if (definition.name) {
@@ -1071,7 +1018,6 @@ function buildSuccessComment(payload, definition, provenCommits, updatedIndexes,
   lines.push(`Issued file: ${issuedPath}`)
   lines.push(`Proof-backed commits: ${provenCommits.length}`)
   lines.push(`Issued at: ${new Date().toISOString()}`)
-  lines.push(updatedIndexes ? 'Indexes updated: yes' : 'Indexes updated: no')
   return lines.join('\n')
 }
 
@@ -1181,15 +1127,6 @@ async function closeIssue(issueNumber, repo, reason = 'completed') {
   }
 
   await runGh(args)
-}
-
-async function runNodeScript(relativePath) {
-  const script = path.resolve(relativePath)
-  const result = await execFileAsync(process.execPath, [script], {
-    env: { ...process.env },
-    encoding: 'utf8',
-  })
-  return result.stdout.trim()
 }
 
 async function runGh(args) {
