@@ -9,6 +9,7 @@ const execFileAsync = promisify(execFile)
 
 const EVENT_PATH = process.env.GITHUB_EVENT_PATH
 const DEFAULT_REPO = process.env.GITHUB_REPOSITORY || 'skillcraft-gg/credential-ledger'
+const CLAIM_RESULT_PATH = process.env.SKILLCRAFT_CLAIM_RESULT_PATH
 
 const LABEL_CLAIM = 'skillcraft-claim'
 const LABEL_PROCESSING = 'skillcraft-processing'
@@ -113,7 +114,17 @@ async function runClaimProcessing() {
       return
     }
 
-    const issuedPath = await writeIssuedCredential(payload, definition, checks)
+    const issued = await writeIssuedCredential(payload, definition, checks)
+    const issuedEvent = buildIssuedCredentialEventPayload({
+      issueNumber: issue.number,
+      repository: targetRepo,
+      payload,
+      definition,
+      checks,
+      issuedAt: issued.issuedAt,
+      issuedPath: issued.outPath,
+    })
+    await writeClaimResult(issuedEvent)
 
     await setIssueState(issue.number, targetRepo, {
       add: [LABEL_VERIFIED, LABEL_ISSUED],
@@ -123,7 +134,7 @@ async function runClaimProcessing() {
     await postComment(
       issue.number,
       targetRepo,
-      buildSuccessComment(payload, definition, checks.provenCommits, issuedPath),
+      buildSuccessComment(payload, definition, checks.provenCommits, issued.outPath),
     )
     await closeIssue(issue.number, targetRepo, 'completed')
   } catch (error) {
@@ -978,7 +989,32 @@ async function writeIssuedCredential(payload, definition, provenCommits) {
   }
 
   await fs.writeFile(outPath, `${lines.join('\n')}\n`, 'utf8')
-  return outPath
+  return { outPath, issuedAt }
+}
+
+export function buildIssuedCredentialEventPayload({ issueNumber, repository, payload, definition, checks, issuedAt, issuedPath }) {
+  return {
+    event: 'credential-issued',
+    issue_number: issueNumber,
+    repository,
+    github_login: normalizeClaimant(payload?.claimant?.github),
+    credential_id: normalizeText(definition?.id),
+    credential_name: normalizeText(definition?.name) || normalizeText(definition?.id),
+    claim_id: normalizeText(payload?.claim_id) || `issue-${issueNumber}`,
+    issued_at: issuedAt,
+    issued_path: issuedPath ? issuedPath.replaceAll(path.sep, '/') : undefined,
+    source_commits: Array.from(new Set((checks?.provenCommits || []).filter(Boolean))),
+  }
+}
+
+async function writeClaimResult(result) {
+  if (!CLAIM_RESULT_PATH) {
+    return
+  }
+
+  const dir = path.dirname(CLAIM_RESULT_PATH)
+  await fs.mkdir(dir, { recursive: true })
+  await fs.writeFile(CLAIM_RESULT_PATH, `${JSON.stringify(result, null, 2)}\n`, 'utf8')
 }
 
 function buildVerifiedSourcesFromProofs(result) {

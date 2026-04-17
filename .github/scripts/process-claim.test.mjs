@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { evaluateRequirements, findDuplicateOpenClaim, isClaimIssue, normalizeRequirements, parseClaimPayload } from './process-claim.mjs'
+import { buildIssuedCredentialEventPayload, evaluateRequirements, findDuplicateOpenClaim, isClaimIssue, normalizeRequirements, parseClaimPayload } from './process-claim.mjs'
 
 function proof(overrides = {}) {
   return {
@@ -245,5 +245,41 @@ describe('process-claim payload parsing', () => {
 
     assert.equal(duplicate?.number, 40)
     assert.equal(duplicate?.url, 'https://github.com/skillcraft-gg/credential-ledger/issues/40')
+  })
+})
+
+describe('issued credential webhook payload', () => {
+  test('builds the Crafty credential-issued payload from claim results', () => {
+    const payload = buildIssuedCredentialEventPayload({
+      issueNumber: 42,
+      repository: 'skillcraft-gg/credential-ledger',
+      payload: {
+        claimant: { github: 'BlairHudson' },
+        credential: { id: 'skillcraft-gg/hello-world' },
+        claim_id: 'sha256:abc123',
+      },
+      definition: {
+        id: 'skillcraft-gg/hello-world',
+        name: 'Hello World',
+      },
+      checks: {
+        provenCommits: ['abc123', 'def456', 'abc123'],
+      },
+      issuedAt: '2026-04-11T12:00:00.000Z',
+      issuedPath: 'issued/users/blairhudson/skillcraft-gg/hello-world/credential.yaml',
+    })
+
+    assert.deepStrictEqual(payload, {
+      event: 'credential-issued',
+      issue_number: 42,
+      repository: 'skillcraft-gg/credential-ledger',
+      github_login: 'blairhudson',
+      credential_id: 'skillcraft-gg/hello-world',
+      credential_name: 'Hello World',
+      claim_id: 'sha256:abc123',
+      issued_at: '2026-04-11T12:00:00.000Z',
+      issued_path: 'issued/users/blairhudson/skillcraft-gg/hello-world/credential.yaml',
+      source_commits: ['abc123', 'def456'],
+    })
   })
 })

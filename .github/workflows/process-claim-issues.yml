@@ -16,6 +16,8 @@ permissions:
 jobs:
   process-claims:
     runs-on: ubuntu-latest
+    env:
+      CLAIM_RESULT_PATH: ${{ runner.temp }}/skillcraft-claim-result.json
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,6 +27,7 @@ jobs:
       - name: Process credential claim issue
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          SKILLCRAFT_CLAIM_RESULT_PATH: ${{ env.CLAIM_RESULT_PATH }}
         run: node .github/scripts/process-claim.mjs
 
       - name: Commit issued credential updates
@@ -47,3 +50,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run publish-pages.yml --ref main
+
+      - name: Notify Crafty of issued credential
+        if: ${{ steps.commit-issued-updates.outputs.pushed == 'true' }}
+        env:
+          # Configure these repository secrets to enable Discord-side unlocks and announcements.
+          CRAFTY_WEBHOOK_URL: ${{ secrets.CRAFTY_WEBHOOK_URL }}
+          CRAFTY_WEBHOOK_SECRET: ${{ secrets.CRAFTY_WEBHOOK_SECRET }}
+          CRAFTY_WEBHOOK_DELIVERY_ID: claim-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: node .github/scripts/notify-crafty.mjs "$CLAIM_RESULT_PATH"
